@@ -62,13 +62,6 @@ pub fn process_part2(input: &str) -> u64 {
         .sum()
 }
 
-fn main() {
-    let input = include_str!("../input1.txt");
-    let output = process_part1(input);
-    // let output = process_part2(input);
-    println!("Output: {:?}", output);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
