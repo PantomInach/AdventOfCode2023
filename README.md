@@ -1,7 +1,6 @@
 # AdventOfCode2023
 My Advent of code 2023 solutions.
 
-## Solutions for
 | Day | Part 1 | Part 2 | 
 | --- | --- | --- |
 | 1 | :white_check_mark: | :white_check_mark: |
@@ -10,7 +9,7 @@ My Advent of code 2023 solutions.
 | 4 | :white_check_mark: | :white_check_mark: |
 | 5 | :white_check_mark: | :construction: |
 | 6 | :white_check_mark: | :white_check_mark: |
-| 7 | :lock: | :lock: |
+| 7 | :white_check_mark: | :white_check_mark: |
 | 8 | :lock:| :lock: |
 | 9 | :lock:| :lock: |
 | 10 | :lock: | :lock: |
@@ -28,3 +27,12 @@ My Advent of code 2023 solutions.
 | 22 | :lock: | :lock: |
 | 23 | :lock: | :lock: |
 | 24 | :lock: | :lock: |
+| 25 | :lock: | :lock: |
+
+## Execute Code
+To calculate the solution for one day, go into the day's directory and run 
+```bash
+cargo run --bin part1
+cargo run --bin part2
+```
+to get the results for both parts.
