@@ -11,9 +11,16 @@ struct Mappings {
     maps: Vec<Mapping>,
 }
 
+#[derive(Debug)]
 struct Range {
     start: u64,
     end: u64,
+}
+
+impl Range {
+    fn contrains(&self, n: &u64) -> bool {
+        &self.start <= n && n <= &self.end
+    }
 }
 
 impl FromStr for Mappings {
@@ -31,6 +38,13 @@ impl Mappings {
         self.maps
             .iter()
             .find_map(|m| m.get(index))
+            .unwrap_or(*index)
+    }
+
+    fn reverse(&self, index: &u64) -> u64 {
+        self.maps
+            .iter()
+            .find_map(|m| m.reverse(index))
             .unwrap_or(*index)
     }
 }
@@ -57,8 +71,17 @@ impl FromStr for Mapping {
 
 impl Mapping {
     fn get(&self, index: &u64) -> Option<u64> {
-        if self.source_start <= *index && *index <= self.source_end {
+        if self.source_start <= *index && *index < self.source_end {
             Some(index - self.source_start + self.dest_start)
+        } else {
+            None
+        }
+    }
+
+    fn reverse(&self, index: &u64) -> Option<u64> {
+        let range = self.source_end - self.source_start;
+        if self.dest_start <= *index && *index < self.dest_start + range {
+            Some(self.source_start + index - self.dest_start)
         } else {
             None
         }
@@ -107,10 +130,13 @@ pub fn process_part2(input: &str) -> u64 {
         .split("\n\n")
         // .for_each(|block| println!("Start of block---- {}", block));
         .collect();
-    let seeds: Vec<u64> = parse_seeds(blocks.first().unwrap())
+    let seeds: Vec<Range> = parse_seeds(blocks.first().unwrap())
         .as_slice()
         .chunks(2)
-        .flat_map(|chunk| (chunk[0]..chunk[1] + chunk[0]))
+        .map(|chunk| Range {
+            start: chunk[0],
+            end: chunk[1] + chunk[0],
+        })
         .collect();
     let seed_to_soil: Mappings = Mappings::from_str(blocks.get(1).unwrap()).unwrap();
     let soil_to_fertilizer: Mappings = Mappings::from_str(blocks.get(2).unwrap()).unwrap();
@@ -119,18 +145,16 @@ pub fn process_part2(input: &str) -> u64 {
     let light_to_temperature: Mappings = Mappings::from_str(blocks.get(5).unwrap()).unwrap();
     let temperature_to_humidity: Mappings = Mappings::from_str(blocks.get(6).unwrap()).unwrap();
     let humidity_to_location: Mappings = Mappings::from_str(blocks.get(7).unwrap()).unwrap();
-    seeds
-        .iter()
-        .map(|s| {
-            humidity_to_location.get(&temperature_to_humidity.get(
-                &light_to_temperature.get(
-                    &water_to_light.get(
-                        &fertilizer_to_water.get(&soil_to_fertilizer.get(&seed_to_soil.get(s))),
-                    ),
-                ),
-            ))
+    (0_u64..)
+        .find(|n| {
+            let prev =
+                seed_to_soil.reverse(&soil_to_fertilizer.reverse(&fertilizer_to_water.reverse(
+                    &water_to_light.reverse(&light_to_temperature.reverse(
+                        &temperature_to_humidity.reverse(&humidity_to_location.reverse(&n)),
+                    )),
+                )));
+            seeds.iter().any(|sr| sr.contrains(&prev))
         })
-        .min()
         .unwrap()
 }
 
@@ -174,6 +198,22 @@ humidity-to-location map:
 60 56 37
 56 93 4";
         assert_eq!(35_u64, process_part1(input));
+    }
+
+    #[test]
+    fn reversablilty() {
+        let mapping = Mapping::from_str("1 0 2").unwrap();
+        assert_eq!(mapping.get(&1), Some(2));
+        assert_eq!(mapping.reverse(&2), Some(1));
+        assert_eq!(mapping.reverse(&1), Some(0));
+        assert_eq!(mapping.get(&2).and_then(|n| mapping.reverse(&n)), None);
+        assert_eq!(mapping.get(&1).and_then(|n| mapping.reverse(&n)), Some(1));
+        assert_eq!(mapping.get(&0).and_then(|n| mapping.reverse(&n)), Some(0));
+        assert_eq!(mapping.reverse(&1).and_then(|n| mapping.get(&n)), Some(1));
+
+        let mapping = Mapping::from_str("45 77 23").unwrap();
+        assert_eq!(mapping.get(&77), Some(45));
+        assert_eq!(mapping.reverse(&45), Some(77));
     }
 
     #[test]
