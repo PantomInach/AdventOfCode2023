@@ -12,7 +12,7 @@ My Advent of code 2023 solutions.
 | 7 | :white_check_mark: | :white_check_mark: |
 | 8 | :white_check_mark: | :white_check_mark: |
 | 9 | :white_check_mark: | :white_check_mark: |
-| 10 | :lock: | :lock: |
+| 10 | :white_check_mark: | :white_check_mark: |
 | 11 | :lock: | :lock: |
 | 12 | :lock: | :lock: |
 | 13 | :lock: | :lock: |
