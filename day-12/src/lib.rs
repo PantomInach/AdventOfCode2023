@@ -1,8 +1,6 @@
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
-use itertools::Itertools;
-
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Copy)]
 enum State {
     Good,
     Broken,
@@ -12,8 +10,6 @@ enum State {
 struct Line {
     springs: Vec<State>,
     backup: Vec<usize>,
-    unknowns: usize,
-    unknown_broken: usize,
 }
 
 impl State {
@@ -37,69 +33,85 @@ impl FromStr for Line {
             .split(',')
             .flat_map(|n| n.parse::<usize>())
             .collect();
-        let unknowns: usize = springs.iter().filter(|s| s == &&State::Unknown).count();
-        let unknown_broken: usize =
-            backup.iter().sum::<usize>() - springs.iter().filter(|s| s == &&State::Broken).count();
-        Ok(Line {
-            springs,
-            backup,
-            unknowns,
-            unknown_broken,
-        })
+        Ok(Line { springs, backup })
     }
 }
 
 impl Line {
-    fn valid(&self, resolve: &Vec<&State>) -> bool {
-        if resolve.len() != self.unknowns {
-            return false;
+    fn dp(&self, pos: usize, at_group: usize, cache: &mut HashMap<(usize, usize), u64>) -> u64 {
+        if let Some(res) = cache.get(&(pos, at_group)) {
+            return *res;
         }
-        if resolve.iter().filter(|s| s == &&&State::Broken).count() != self.unknown_broken {
-            return false;
-        }
-        let mut temp = self.springs.clone();
-        self.springs
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| s == &&State::Unknown)
-            .zip(resolve)
-            .for_each(|((i, _), s)| temp[i] = s.clone().clone());
-        let mut length: usize = 1;
-        let mut groups: Vec<usize> = temp.iter().fold(vec![0], |mut acc, x| {
-            match x {
-                State::Good => {
-                    if acc.last().unwrap() != &0_usize {
-                        acc.push(0_usize);
-                        length += 1;
-                    }
+        let spring_op = self.springs.get(pos);
+        if let Some(spring) = spring_op {
+            let mut res = 0;
+            if spring == &State::Good || spring == &State::Unknown {
+                // Let spring be good
+                res += self.dp(pos + 1, at_group, cache);
+            }
+            if (spring == &State::Unknown || spring == &State::Broken)
+                && at_group < self.backup.len()
+            {
+                let check_group = if let Some(group) = self
+                    .springs
+                    .get(pos..pos + self.backup.get(at_group).unwrap())
+                {
+                    // Can take group
+                    !group.contains(&State::Good)
+                } else {
+                    false
+                };
+                let check_group_end = if let Some(next_spring) =
+                    self.springs.get(pos + self.backup.get(at_group).unwrap())
+                {
+                    next_spring != &State::Broken
+                } else {
+                    true
+                };
+                if check_group && check_group_end {
+                    res += self.dp(
+                        pos + self.backup.get(at_group).unwrap() + 1,
+                        at_group + 1,
+                        cache,
+                    );
                 }
-                State::Broken => acc[length - 1] += 1,
-                State::Unknown => unimplemented!("Cant happen"),
-            };
-            acc
-        });
-        if groups.last().unwrap() == &0 {
-            groups.pop();
+            }
+            cache.insert((pos, at_group), res);
+            res
+        } else {
+            // End of springs => check if all groups were taken
+            if at_group == self.backup.len() {
+                cache.insert((pos, at_group), 1);
+                1
+            } else {
+                cache.insert((pos, at_group), 0);
+                0
+            }
         }
-        groups == self.backup
     }
 
-    fn brute_force(&self) -> u64 {
-        (0..self.unknowns)
-            .map(|_| vec![&State::Good, &State::Broken])
-            .multi_cartesian_product()
-            .filter(|v| self.valid(v))
-            .count() as u64
+    fn expand(&self) -> Line {
+        let mut springs = self.springs.clone();
+        springs.push(State::Unknown);
+        springs = springs.repeat(5);
+        springs.pop();
+        let backup = self.backup.repeat(5);
+        Line { springs, backup }
     }
 }
 
 pub fn process_part1(input: &str) -> u64 {
-    let lines: Vec<Line> = input.lines().flat_map(|l| Line::from_str(l)).collect();
-    lines.iter().map(|l| l.brute_force()).sum()
+    let lines: Vec<Line> = input.lines().flat_map(Line::from_str).collect();
+    lines.iter().map(|l| l.dp(0, 0, &mut HashMap::new())).sum()
 }
 
 pub fn process_part2(input: &str) -> u64 {
-    todo!()
+    let lines: Vec<Line> = input
+        .lines()
+        .flat_map(Line::from_str)
+        .map(|l| l.expand())
+        .collect();
+    lines.iter().map(|l| l.dp(0, 0, &mut HashMap::new())).sum()
 }
 
 #[cfg(test)]
@@ -118,140 +130,14 @@ mod tests {
     }
 
     #[test]
-    fn test_brute_force() {
+    fn test_dp() {
         let input = "?###???????? 3,2,1";
-        assert_eq!(10_u64, Line::from_str(input).unwrap().brute_force());
-    }
-
-    #[test]
-    fn test_valid() {
-        let input = "..##..## 2,2";
-        assert!(Line::from_str(input).unwrap().valid(&vec![]));
-        let input = "..##..?# 2,2";
-        assert!(Line::from_str(input).unwrap().valid(&vec![&State::Broken]));
-        assert!(!Line::from_str(input).unwrap().valid(&vec![&State::Good]));
-
-        let input = "?###???????? 3,2,1";
-        let resolve = vec![
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-            &State::Broken,
-            &State::Good,
-            &State::Broken,
-            &State::Good,
-            &State::Good,
-            &State::Good,
-        ];
-        assert!(Line::from_str(input).unwrap().valid(&resolve));
-        let resolve = vec![
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-            &State::Broken,
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-            &State::Good,
-            &State::Good,
-        ];
-        assert!(Line::from_str(input).unwrap().valid(&resolve));
-        let resolve = vec![
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-            &State::Broken,
-            &State::Good,
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-            &State::Good,
-        ];
-        assert!(Line::from_str(input).unwrap().valid(&resolve));
-        let resolve = vec![
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-            &State::Broken,
-            &State::Good,
-            &State::Good,
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-        ];
-        assert!(Line::from_str(input).unwrap().valid(&resolve));
-        let resolve = vec![
-            &State::Good,
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-            &State::Broken,
-            &State::Good,
-            &State::Broken,
-            &State::Good,
-            &State::Good,
-        ];
-        assert!(Line::from_str(input).unwrap().valid(&resolve));
-        let resolve = vec![
-            &State::Good,
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-            &State::Broken,
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-            &State::Good,
-        ];
-        assert!(Line::from_str(input).unwrap().valid(&resolve));
-        let resolve = vec![
-            &State::Good,
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-            &State::Broken,
-            &State::Good,
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-        ];
-        assert!(Line::from_str(input).unwrap().valid(&resolve));
-        let resolve = vec![
-            &State::Good,
-            &State::Good,
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-            &State::Broken,
-            &State::Good,
-            &State::Broken,
-            &State::Good,
-        ];
-        assert!(Line::from_str(input).unwrap().valid(&resolve));
-        let resolve = vec![
-            &State::Good,
-            &State::Good,
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-            &State::Broken,
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-        ];
-        assert!(Line::from_str(input).unwrap().valid(&resolve));
-        let resolve = vec![
-            &State::Good,
-            &State::Good,
-            &State::Good,
-            &State::Good,
-            &State::Good,
-            &State::Broken,
-            &State::Broken,
-            &State::Good,
-            &State::Broken,
-        ];
-        assert!(Line::from_str(input).unwrap().valid(&resolve));
+        println!("{:?}", Line::from_str(input).unwrap().springs);
+        println!("{:?}", Line::from_str(input).unwrap().backup);
+        assert_eq!(
+            10_u64,
+            Line::from_str(input).unwrap().dp(0, 0, &mut HashMap::new())
+        );
     }
 
     #[test]
@@ -262,6 +148,6 @@ mod tests {
 ????.#...#... 4,1,1
 ????.######..#####. 1,6,5
 ?###???????? 3,2,1";
-        assert_eq!(525152_u64, process_part1(input));
+        assert_eq!(525152_u64, process_part2(input));
     }
 }
