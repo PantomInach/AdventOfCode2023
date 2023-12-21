@@ -1,4 +1,4 @@
-use std::{collections::HashMap, str::FromStr, u64};
+use std::{collections::HashMap, str::FromStr};
 
 #[derive(Debug)]
 struct Part {
@@ -35,6 +35,13 @@ impl Comparison {
         match self {
             Comparison::Greater => x1 > x2,
             Comparison::Less => x1 < x2,
+        }
+    }
+
+    fn ranges(&self, value: u64) -> (Range, Range) {
+        match self {
+            Comparison::Less => (Range::to(value - 1), Range::starting(value)),
+            Comparison::Greater => (Range::starting(value + 1), Range::to(value)),
         }
     }
 }
@@ -75,6 +82,15 @@ impl Category {
             Category::S => part.s,
         }
     }
+
+    fn index(&self) -> usize {
+        match self {
+            Category::X => 0,
+            Category::M => 1,
+            Category::A => 2,
+            Category::S => 3,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -102,7 +118,7 @@ impl FromStr for Condition {
             _ => unimplemented!("No such comparision"),
         };
         let (val, n) = s.split_once(':').unwrap();
-        let value = u64::from_str_radix(&val[2..], 10).unwrap();
+        let value = val[2..].parse::<u64>().unwrap();
         let next = NextWorkflow::from_str(n).unwrap();
         Ok(Condition {
             compare_with,
@@ -119,6 +135,13 @@ impl Condition {
         self.comparison
             .compare(compare_value, self.value)
             .then_some(&self.next)
+    }
+
+    fn branch(&self, space: &Space) -> (&NextWorkflow, Space, Space) {
+        let (range_true, range_false) = self.comparison.ranges(self.value);
+        let space_true = space.manipulate(&range_true, &self.compare_with);
+        let space_false = space.manipulate(&range_false, &self.compare_with);
+        (&self.next, space_true, space_false)
     }
 }
 
@@ -152,11 +175,22 @@ impl FromStr for Workflow {
 
 impl Workflow {
     fn process(&self, part: &Part) -> &NextWorkflow {
-        &self
-            .conditions
+        self.conditions
             .iter()
             .find_map(|cond| cond.compare(part))
             .unwrap_or(&self.next)
+    }
+
+    fn process_spaces(&self, space: &Space) -> Vec<(&NextWorkflow, Space)> {
+        let mut acc: Vec<(&NextWorkflow, Space)> = vec![];
+        let mut last = *space;
+        self.conditions.iter().for_each(|cond| {
+            let (next, space_true, space_false) = cond.branch(&last);
+            acc.push((next, space_true));
+            last = space_false;
+        });
+        acc.push((&self.next, last));
+        acc
     }
 }
 
@@ -205,6 +239,97 @@ impl Puzzle {
             NextWorkflow::Workflow(_) => false,
         }
     }
+
+    fn sum_accepted_branches(&self) -> u64 {
+        self.accepted_branches(&NextWorkflow::Workflow("in".to_string()), &Space::new(true))
+            .iter()
+            .map(|space| space.volume())
+            .sum::<u64>()
+    }
+
+    fn accepted_branches(&self, next_workflow: &NextWorkflow, space: &Space) -> Vec<Space> {
+        match next_workflow {
+            NextWorkflow::Accept => vec![*space],
+            NextWorkflow::Reject => vec![],
+            NextWorkflow::Workflow(label) => {
+                let workflow = self.workflows.get(label).unwrap();
+                workflow
+                    .process_spaces(space)
+                    .iter()
+                    .flat_map(|(nwf, ns)| self.accepted_branches(nwf, ns))
+                    .collect()
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+struct Space {
+    feasible: bool,
+    ranges: [Range; 4],
+}
+
+impl Space {
+    fn new(feasible: bool) -> Space {
+        Space {
+            feasible,
+            ranges: [Range::new(); 4],
+        }
+    }
+
+    fn manipulate(&self, range: &Range, cat: &Category) -> Space {
+        if !self.feasible {
+            Space::new(self.feasible)
+        } else {
+            let mut new_space = *self;
+            new_space.ranges[cat.index()] = new_space.ranges[cat.index()].add(range);
+            new_space.feasible = new_space.ranges[cat.index()].feasible();
+            new_space
+        }
+    }
+
+    fn volume(&self) -> u64 {
+        self.ranges.iter().map(|r| r.size()).product()
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Range {
+    l: u64,
+    u: u64,
+}
+
+impl Range {
+    fn new() -> Range {
+        Range { l: 1, u: 4000 }
+    }
+
+    fn add(&self, other: &Range) -> Range {
+        Range {
+            l: self.l.max(other.l),
+            u: self.u.min(other.u),
+        }
+    }
+
+    fn feasible(&self) -> bool {
+        self.l <= self.u
+    }
+
+    fn to(u: u64) -> Range {
+        Range { l: 1, u }
+    }
+
+    fn starting(l: u64) -> Range {
+        Range { l, u: 4000 }
+    }
+
+    fn size(&self) -> u64 {
+        if self.feasible() {
+            self.u - self.l + 1
+        } else {
+            0
+        }
+    }
 }
 
 pub fn process_part1(input: &str) -> u64 {
@@ -212,7 +337,7 @@ pub fn process_part1(input: &str) -> u64 {
 }
 
 pub fn process_part2(input: &str) -> u64 {
-    todo!()
+    Puzzle::from_str(input).unwrap().sum_accepted_branches()
 }
 
 #[cfg(test)]

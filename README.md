@@ -21,9 +21,9 @@ My Advent of code 2023 solutions.
 | 16 | :white_check_mark: | :white_check_mark: |
 | 17 | :white_check_mark: | :white_check_mark: |
 | 18 | :white_check_mark: | :white_check_mark: |
-| 19 | :lock: | :lock: |
-| 20 | :lock: | :lock: |
-| 21 | :lock: | :lock: |
+| 19 | :white_check_mark: | :white_check_mark: |
+| 20 | :unlock: | :unlock: |
+| 21 | :unlock: | :unlock: |
 | 22 | :lock: | :lock: |
 | 23 | :lock: | :lock: |
 | 24 | :lock: | :lock: |
