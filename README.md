@@ -22,7 +22,7 @@ My Advent of code 2023 solutions.
 | 17 | :white_check_mark: | :white_check_mark: |
 | 18 | :white_check_mark: | :white_check_mark: |
 | 19 | :white_check_mark: | :white_check_mark: |
-| 20 | :unlock: | :unlock: |
+| 20 | :white_check_mark: | :white_check_mark: :warning: |
 | 21 | :unlock: | :unlock: |
 | 22 | :lock: | :lock: |
 | 23 | :lock: | :lock: |
@@ -36,3 +36,7 @@ cargo run --bin part1
 cargo run --bin part2
 ```
 to get the results for both parts.
+
+## Information
+### Day 20 Part 2
+For different inputs, it is needed to manually set variables in the code.
