@@ -27,7 +27,7 @@ My Advent of code 2023 solutions.
 | 22 | :white_check_mark: | :white_check_mark: |
 | 23 | :white_check_mark: | :white_check_mark: :snail: |
 | 24 | :white_check_mark: | :white_check_mark: |
-| 25 | :lock: | :lock: |
+| 25 | :white_check_mark: | :white_check_mark: |
 
 ## Execute Code
 To calculate the solution for one day, go into the day's directory and run 
